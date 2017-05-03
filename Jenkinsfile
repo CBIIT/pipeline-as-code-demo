@@ -6,7 +6,6 @@ def tag="*/master"
 def LABEL_MASTER="default_master"
 def LABEL_LOWER="default_lower"
 def LABEL_UPPER="default_lower"
-def CREDS="6c123f4b5bb745f19c2a29391a0692c8419acb2c"
 def URL='https://github.com/CBIIT/pipeline-as-code-demo.git'
 def TIME1=5
 def TIME2=10
@@ -55,7 +54,7 @@ node(LABEL_LOWER) {
   
   stage (name: 'Checkout') {
     checkout([$class: 'GitSCM', branches: [[name: tag]], doGenerateSubmoduleConfigurations: false
-      , extensions: [], gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[credentialsId: CREDS
+      , extensions: [], gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[credentialsId: ${CREDS}
       , url: URL]]])
   }
   
