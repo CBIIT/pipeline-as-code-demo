@@ -39,6 +39,8 @@ echo ("tag=${tag}")
 //run on master
 node(LABEL_MASTER)
 {
+  step([$class: 'WsCleanup'])
+
   //dump env
   sh 'env > env.txt'
   s = readFile('env.txt').split("\r?\n")
@@ -47,35 +49,27 @@ node(LABEL_MASTER)
   }
 }
 
-//checkpoint and clean workspace
-node {
-  stash('Before cleanup')
+//run on slave
+node(LABEL_LOWER) {
   step([$class: 'WsCleanup'])
-}
-
-//run on master
-node {
-    //checkout
+  
+  stage (name: 'Checkout') {
     checkout([$class: 'GitSCM', branches: [[name: tag]], doGenerateSubmoduleConfigurations: false
       , extensions: [], gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[credentialsId: CREDS
       , url: URL]]])
-    stash('checkout')      
-}
-
-//run on slave
-node (LABEL_LOWER) {
-    stage (name: 'Dev') {
-      unstash('checkout')
-      //build
-      mvn 'clean package'
-      //deploy
-      dir('target') {stash name: 'war', includes: 'x.war'}
+  }
+  
+  stage (name: 'Build') {
+    //build
+    mvn 'clean package'
+    //save artifacts
+    dir('target') {
+      stash name: 'war', includes: 'x.war'
     }
-}
+  }
 
-//run on slave
-node(LABEL_LOWER) {
   stage (name: 'QA') {
+    unstash 'war'
     parallel(
       longerTests: {
         runTests(TIME1, LABEL_LOWER)
@@ -84,17 +78,19 @@ node(LABEL_LOWER) {
       }
     )
   }
-}
 
-//run on slave
-node (LABEL_UPPER) {
   stage (name: 'Stage') {
     deploy 'staging'
+  }
+
+  stage( name: 'Archive artifacts')
+  {
+    archive 'x.war'
   }
 }
 
 //run on master
-node
+node (LABEL_MASTER)
 {
   stage( name: 'Notify approver')
   {
